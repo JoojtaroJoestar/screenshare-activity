@@ -63,6 +63,17 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
+function debugLog(msg) {
+  let log = document.getElementById('debug-log');
+  if (!log) {
+    log = document.createElement('div');
+    log.id = 'debug-log';
+    log.style.cssText = 'position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:10px;z-index:99999;font-family:monospace;font-size:12px;max-width:300px;pointer-events:none;';
+    document.body.appendChild(log);
+  }
+  log.innerHTML += '<div>' + msg + '</div>';
+}
+
 /* ══════════════════════════════════════════════════════════════════════
    WebSocket Connection
 ══════════════════════════════════════════════════════════════════════ */
@@ -116,6 +127,7 @@ function handleMessage(msg) {
 
     // ── Viewer: WebRTC signaling ─────────────────────────────────────
     case 'join_ok': {
+      debugLog("Servidor aceitou! Iniciando player...");
       // Store viewerId so we can send it back in ICE/answer messages
       const entry = watchingStreams.get(msg.streamId);
       if (entry) entry.viewerId = msg.viewerId;
@@ -201,7 +213,7 @@ function renderLobby() {
   // Attach click events
   grid.querySelectorAll('.stream-card').forEach(card => {
     card.addEventListener('click', () => {
-      alert("Botão clicado! Tentando entrar...");
+      debugLog("Botão clicado! Tentando entrar...");
       const id = card.dataset.streamId;
       requestJoinStream(id);
     });
@@ -298,7 +310,7 @@ function requestJoinStream(streamId) {
 
   const stream = allStreams.find(s => s.id === streamId);
   if (!stream) {
-    alert("Erro: stream " + streamId + " não encontrado!");
+    debugLog("Erro: stream " + streamId + " não encontrado!");
     return;
   }
 
@@ -324,7 +336,7 @@ function handleJoinError(streamId, reason) {
     showError('modal-password-error', 'Senha incorreta. Tente novamente.');
     $('input-stream-password').focus();
   } else {
-    alert(`Erro ao entrar no stream: ${reason}`);
+    debugLog(`Erro ao entrar no stream: ${reason}`);
     $('modal-password').classList.add('hidden');
   }
 }
