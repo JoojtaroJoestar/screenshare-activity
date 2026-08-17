@@ -1019,3 +1019,10 @@ html, body {
 }
 
 .pseudo-fullscreen { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 9999 !important; border-radius: 0 !important; background: #000; } .pseudo-fullscreen video { border-radius: 0 !important; max-height: 100vh !important; }
+
+/* Hide overlay elements in full screen, no shadows/animations */
+.pseudo-fullscreen .video-panel-bottom { display: none !important; }
+.pseudo-fullscreen .video-panel-overlay { background: transparent !important; opacity: 0; transition: opacity 0.2s; }
+.pseudo-fullscreen:hover .video-panel-overlay { opacity: 1; }
+.pseudo-fullscreen { box-shadow: none !important; animation: none !important; transition: none !important; }
+.pseudo-fullscreen video { box-shadow: none !important; animation: none !important; object-fit: contain !important; }

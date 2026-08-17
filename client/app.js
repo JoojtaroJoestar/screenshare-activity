@@ -442,7 +442,7 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
     </div>
     <div class="video-panel-overlay">
       <div class="video-panel-top">
-        <button class="btn-icon" title="Tela cheia" onclick="toggleFullscreen('${streamId}')">⛶</button>
+        <button class="btn-icon btn-fullscreen" title="Tela cheia" onclick="toggleFullscreen('${streamId}')">⛶</button>
         <button class="btn-icon btn-danger" title="Fechar" style="color:#ed4245" onclick="removeWatchStream('${streamId}')">✕</button>
       </div>
       <div class="video-panel-bottom">
@@ -496,7 +496,12 @@ function removeWatchStream(streamId) {
 function toggleFullscreen(streamId) {
   const panel = document.querySelector(`.video-panel[data-stream-id="${streamId}"]`);
   if (!panel) return;
-  panel.classList.toggle('pseudo-fullscreen');
+  const isExpanded = panel.classList.toggle('pseudo-fullscreen');
+  const btn = panel.querySelector('.btn-fullscreen');
+  if (btn) {
+    btn.textContent = isExpanded ? '🗕' : '⛶';
+    btn.title = isExpanded ? 'Minimizar' : 'Tela cheia';
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════
