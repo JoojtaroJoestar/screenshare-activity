@@ -132,6 +132,7 @@ function handleMessage(msg) {
       // Store viewerId so we can send it back in ICE/answer messages
       try {
         debugLog("WebRTC typeof: " + typeof RTCPeerConnection);
+        debugLog("webkit typeof: " + typeof window.webkitRTCPeerConnection);
       } catch (e) {
         debugLog("ERRO WebRTC: " + e.message);
       }
@@ -374,7 +375,12 @@ function confirmPassword() {
 async function startViewerPeer(streamId, viewerId, broadcasterName, thumbnail) {
   let pc;
   try {
-    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const PCConstructor = typeof RTCPeerConnection === 'function' ? RTCPeerConnection 
+                        : (window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+    if (!PCConstructor) {
+      throw new Error("Nenhum construtor WebRTC suportado neste navegador");
+    }
+    pc = new PCConstructor({ iceServers: ICE_SERVERS });
     debugLog("PC criado com sucesso!");
   } catch(e) {
     debugLog("ERRO CRÍTICO no startViewerPeer: " + e.message);
