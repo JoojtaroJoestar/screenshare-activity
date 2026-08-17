@@ -270,31 +270,36 @@ function stopStream() {
 /* ── WebRTC: Broadcaster side ─────────────────────────────────────────── */
 async function handleViewerJoined(viewerId, viewerName, sid) {
   debugLog(`> Viewer ${viewerName} solicitou entrada!`);
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
-  peerConnections.set(viewerId, pc);
-
-  // Add all local tracks to this peer connection
-  localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
-
-  pc.onicecandidate = (e) => {
-    if (e.candidate) {
-      send({
-        type: 'webrtc_ice',
-        streamId: sid,
-        candidate: e.candidate,
-        viewerId,
-        target: 'viewer',
-      });
-    }
-  };
-
-  pc.onconnectionstatechange = () => {
-    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
-      handleViewerLeft(viewerId);
-    }
-  };
-
   try {
+    const PCConstructor = typeof RTCPeerConnection === 'function' ? RTCPeerConnection 
+                        : (window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+    if (!PCConstructor) {
+      throw new Error("Construtor WebRTC indisponível!");
+    }
+    const pc = new PCConstructor({ iceServers: ICE_SERVERS });
+    peerConnections.set(viewerId, pc);
+
+    // Add all local tracks to this peer connection
+    localStream.getTracks().forEach(track => pc.addTrack(track, localStream));
+
+    pc.onicecandidate = (e) => {
+      if (e.candidate) {
+        send({
+          type: 'webrtc_ice',
+          streamId: sid,
+          candidate: e.candidate,
+          viewerId,
+          target: 'viewer',
+        });
+      }
+    };
+
+    pc.onconnectionstatechange = () => {
+      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+        handleViewerLeft(viewerId);
+      }
+    };
+
     debugLog(`Criando offer para ${viewerName}...`);
     const offer = await pc.createOffer();
     debugLog(`setLocalDescription...`);
@@ -307,8 +312,8 @@ async function handleViewerJoined(viewerId, viewerName, sid) {
       viewerId,
     });
   } catch (err) {
-    debugLog(`ERRO ao criar offer: ${err.message}`);
-    console.error('Error creating offer for viewer', viewerId, err);
+    debugLog(`ERRO ao lidar com viewer: ${err.message}`);
+    console.error('Error handling viewer joined', viewerId, err);
   }
 }
 
