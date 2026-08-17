@@ -278,7 +278,11 @@ $('btn-open-broadcast').addEventListener('click', () => {
     ...(channelId ? { channelId } : {}),
   });
   const url = `${location.origin}/broadcast.html?${params}`;
-  window.open(url, '_blank', 'width=960,height=640');
+  if (window.discordSdk) {
+    window.discordSdk.commands.openExternalLink({ url });
+  } else {
+    window.open(url, '_blank', 'width=960,height=640');
+  }
 });
 
 /* ══════════════════════════════════════════════════════════════════════

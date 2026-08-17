@@ -27,6 +27,7 @@
       const { DiscordSDK } = await import('https://esm.sh/@discord/embedded-app-sdk@latest');
 
       const sdk = new DiscordSDK(discordClientId);
+      window.discordSdk = sdk;
       await sdk.ready();
 
       // channelId = canal de voz onde a Activity está rodando
