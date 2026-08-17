@@ -201,6 +201,7 @@ function renderLobby() {
   // Attach click events
   grid.querySelectorAll('.stream-card').forEach(card => {
     card.addEventListener('click', () => {
+      alert("Botão clicado! Tentando entrar...");
       const id = card.dataset.streamId;
       requestJoinStream(id);
     });
@@ -296,7 +297,10 @@ function requestJoinStream(streamId) {
   }
 
   const stream = allStreams.find(s => s.id === streamId);
-  if (!stream) return;
+  if (!stream) {
+    alert("Erro: stream " + streamId + " não encontrado!");
+    return;
+  }
 
   if (stream.isPrivate) {
     // Show password modal
@@ -492,11 +496,7 @@ function removeWatchStream(streamId) {
 function toggleFullscreen(streamId) {
   const panel = document.querySelector(`.video-panel[data-stream-id="${streamId}"]`);
   if (!panel) return;
-  if (document.fullscreenElement === panel) {
-    document.exitFullscreen();
-  } else {
-    panel.requestFullscreen();
-  }
+  panel.classList.toggle('pseudo-fullscreen');
 }
 
 /* ══════════════════════════════════════════════════════════════════════

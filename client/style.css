@@ -1017,3 +1017,5 @@ html, body {
   .video-grid[data-count="3"] .video-panel:first-child { grid-column: 1; }
   .identity-card { padding: 36px 24px; }
 }
+
+.pseudo-fullscreen { position: fixed !important; top: 0 !important; left: 0 !important; width: 100vw !important; height: 100vh !important; z-index: 9999 !important; border-radius: 0 !important; background: #000; } .pseudo-fullscreen video { border-radius: 0 !important; max-height: 100vh !important; }
