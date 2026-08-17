@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScreenShare — Transmitir Tela</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="broadcast-page" id="app">
+
+  <!-- Setup (before stream starts) -->
+  <div id="setup-view">
+    <div class="broadcast-header" style="max-width:520px;width:100%">
+      <div class="topbar-logo" style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px">
+        <div class="logo-icon" style="width:32px;height:32px;background:linear-gradient(135deg,#7257ff,#a78bfa);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px">🖥️</div>
+        ScreenShare
+      </div>
+      <span style="color:var(--text-muted);font-size:13px" id="setup-username-label"></span>
+    </div>
+
+    <div class="broadcast-setup">
+      <h2>Configurar transmissão</h2>
+      <p>Ao clicar em <strong>"Iniciar transmissão"</strong>, o sistema abre um seletor onde você escolhe o que compartilhar.</p>
+
+      <div style="background:rgba(114,87,255,0.1);border:1px solid rgba(114,87,255,0.25);border-radius:12px;padding:16px;margin-bottom:24px;text-align:left">
+        <div style="font-size:13px;font-weight:600;color:var(--accent);margin-bottom:10px">🖥️ O que você pode compartilhar:</div>
+        <div style="display:flex;flex-direction:column;gap:8px;font-size:13px">
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:18px">🖥️</span>
+            <div>
+              <strong style="color:var(--text-primary)">Tela inteira</strong>
+              — desktop, apps, jogos, barra de tarefas — tudo que aparece no monitor
+              <span style="background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 6px;border-radius:4px;margin-left:4px">PADRÃO</span>
+            </div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:18px">🪟</span>
+            <div><strong style="color:var(--text-primary)">Janela específica</strong> — só um aplicativo (ex: só o jogo)</div>
+          </div>
+          <div style="display:flex;align-items:flex-start;gap:10px">
+            <span style="font-size:18px">🌐</span>
+            <div><strong style="color:var(--text-primary)">Aba do navegador</strong> — só uma aba do browser</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="input-group" style="text-align:left">
+        <label for="input-stream-name">Nome da transmissão</label>
+        <input type="text" id="input-stream-name" placeholder="Ex: Jogando Minecraft, Trabalhando..." maxlength="64" autocomplete="off">
+      </div>
+
+      <div class="quality-grid" style="margin-top:0;margin-bottom:16px">
+        <div class="quality-opt selected" data-quality="high">
+          <div class="quality-opt-label">Alta</div>
+          <div class="quality-opt-sub">1080p · 30fps</div>
+        </div>
+        <div class="quality-opt" data-quality="medium">
+          <div class="quality-opt-label">Média</div>
+          <div class="quality-opt-sub">720p · 30fps</div>
+        </div>
+        <div class="quality-opt" data-quality="low">
+          <div class="quality-opt-label">Baixa</div>
+          <div class="quality-opt-sub">480p · 15fps</div>
+        </div>
+      </div>
+
+      <div class="toggle-group">
+        <div>
+          <div class="toggle-label">🔒 Stream privado</div>
+          <div class="toggle-sub">Exige senha para entrar</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="toggle-private">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="input-group" id="password-field" style="display:none;text-align:left">
+        <label for="input-password">Senha da transmissão</label>
+        <input type="password" id="input-password" placeholder="Senha que os viewers vão digitar..." autocomplete="off">
+      </div>
+
+      <div class="error-msg" id="setup-error"></div>
+
+      <button class="btn btn-primary" id="btn-start-stream" style="margin-top:16px">
+        📡 Iniciar transmissão
+      </button>
+    </div>
+  </div>
+
+  <!-- Live view (after stream starts) -->
+  <div id="live-view" class="hidden">
+    <div class="broadcast-header">
+      <div class="topbar-logo" style="display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px">
+        <div class="logo-icon" style="width:32px;height:32px;background:linear-gradient(135deg,#7257ff,#a78bfa);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px">🖥️</div>
+        ScreenShare
+      </div>
+      <button class="btn btn-danger btn-sm" id="btn-stop-stream">⏹ Encerrar transmissão</button>
+    </div>
+
+    <div class="broadcast-container">
+      <div class="broadcast-preview">
+        <video id="preview-video" autoplay muted playsinline></video>
+        <div class="broadcast-preview-placeholder hidden" id="preview-placeholder">
+          <span>🖥️</span>
+          <p style="font-size:14px;color:var(--text-secondary)">Sem preview</p>
+        </div>
+      </div>
+      <div class="broadcast-controls">
+        <div class="broadcast-info">
+          <div class="broadcast-name" id="live-stream-name">—</div>
+          <div class="broadcast-meta">
+            <div class="broadcast-live-dot">AO VIVO</div>
+            <span id="live-duration">00:00</span>
+          </div>
+        </div>
+        <div class="broadcast-stats">
+          <div class="stat-item">
+            <div class="stat-value" id="stat-viewers">0</div>
+            <div class="stat-label">Viewers</div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-value" id="stat-quality">—</div>
+            <div class="stat-label">Qualidade</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script src="broadcast.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Arquivo para evitar que o .env suba para o GitHub
+.env
+node_modules/
+*.log

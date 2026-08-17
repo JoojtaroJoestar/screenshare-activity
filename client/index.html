@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ScreenShare — Compartilhe sua tela</title>
+  <meta name="description" content="Plataforma de compartilhamento de tela ao vivo. Assista múltiplas telas simultaneamente, como o Discord Go Live.">
+  <link rel="stylesheet" href="style.css">
+  <!-- Discord Embedded App SDK (esm.sh bundle inclui todas as dependências) -->
+  <script type="module">
+    /**
+     * Tenta autenticar via Discord Embedded App SDK.
+     * Retorna { username, avatar, id } se dentro do Discord e configurado,
+     * ou null em qualquer falha (fallback para tela de login).
+     */
+    async function tryDiscordAuth() {
+      // Discord injeta ?frame_id= na URL quando carrega como Activity
+      const params = new URLSearchParams(location.search);
+      if (!params.has('frame_id')) return null;
+
+      // Busca o client ID configurado no servidor (nunca expõe o secret)
+      const configRes = await fetch('/api/config');
+      const { discordClientId } = await configRes.json();
+      if (!discordClientId) return null;
+
+      // Importa o SDK via esm.sh (bundla automaticamente as dependências)
+      const { DiscordSDK } = await import('https://esm.sh/@discord/embedded-app-sdk@latest');
+
+      const sdk = new DiscordSDK(discordClientId);
+      await sdk.ready();
+
+      // channelId = canal de voz onde a Activity está rodando
+      const channelId = sdk.channelId;
+      const guildId   = sdk.guildId;
+
+      // Solicita código OAuth ao Discord (sem mostrar tela de login Discord)
+      const { code } = await sdk.commands.authorize({
+        client_id: discordClientId,
+        response_type: 'code',
+        state: '',
+        prompt: 'none',
+        scope: ['identify'],
+      });
+
+      // O servidor troca o code por access_token (protege o client_secret)
+      const tokenRes = await fetch('/api/token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code }),
+      });
+      const { access_token, error } = await tokenRes.json();
+      if (error) throw new Error(error);
+
+      // Autentica o SDK e obtém os dados do usuário
+      const auth = await sdk.commands.authenticate({ access_token });
+      const user = auth.user;
+
+      return {
+        username:      user.global_name || user.username,
+        discriminator: user.discriminator,
+        avatarUrl:     user.avatar
+          ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.webp?size=64`
+          : null,
+        id:        user.id,
+        channelId: channelId,   // ← canal de voz atual
+        guildId:   guildId,
+      };
+    }
+
+    // Exponha a promise globalmente para o app.js consumir
+    window.__discordAuthPromise = tryDiscordAuth().catch(() => null);
+  </script>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══════════════════════════════════════════════════
+       VIEW: LOADING (Discord auth em andamento)
+  ══════════════════════════════════════════════════ -->
+  <div id="view-loading" class="view active">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;gap:20px;background:var(--bg-deep)">
+      <div style="width:56px;height:56px;background:linear-gradient(135deg,#7257ff,#a78bfa);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;box-shadow:0 8px 32px rgba(114,87,255,0.3)">🖥️</div>
+      <div class="spinner" style="width:28px;height:28px"></div>
+      <p style="color:var(--text-secondary);font-size:13px">Autenticando com Discord...</p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       VIEW: IDENTITY (fallback — fora do Discord)
+  ══════════════════════════════════════════════════ -->
+  <div id="view-identity" class="view">
+    <div class="identity-card">
+      <div class="identity-logo">🖥️</div>
+      <h1>ScreenShare</h1>
+      <p>Compartilhe sua tela ou assista aos seus amigos ao vivo — direto no navegador.</p>
+      <div class="input-group">
+        <label for="input-username">Seu nome</label>
+        <input
+          type="text"
+          id="input-username"
+          placeholder="Como você quer aparecer?"
+          maxlength="32"
+          autocomplete="off"
+          autofocus
+        >
+      </div>
+      <div id="identity-error" class="error-msg"></div>
+      <button class="btn btn-primary" id="btn-enter" style="margin-top:8px">
+        Entrar no Lobby →
+      </button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       VIEW: LOBBY
+  ══════════════════════════════════════════════════ -->
+  <div id="view-lobby" class="view">
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-logo">
+        <div class="logo-icon">🖥️</div>
+        ScreenShare
+      </div>
+      <div class="topbar-spacer"></div>
+      <button class="btn btn-primary btn-sm" id="btn-open-broadcast" style="width:auto">
+        📡 Transmitir tela
+      </button>
+      <div class="topbar-user">
+        <div class="topbar-avatar" id="topbar-avatar">?</div>
+        <span id="topbar-username">—</span>
+      </div>
+    </header>
+
+    <!-- Content -->
+    <main class="lobby-content">
+      <div class="lobby-header">
+        <div>
+          <h2 class="lobby-title">Transmissões ao vivo</h2>
+          <p class="lobby-subtitle" id="lobby-count">Aguardando streams...</p>
+        </div>
+      </div>
+
+      <!-- Stream cards grid -->
+      <div class="streams-grid" id="streams-grid">
+        <div class="empty-state">
+          <div class="empty-state-icon">🎬</div>
+          <h3>Nenhuma transmissão ativa</h3>
+          <p>Clique em "Transmitir tela" para começar. Seus amigos verão seu stream aqui.</p>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════
+       VIEW: MULTI-STREAM VIEWER
+  ══════════════════════════════════════════════════ -->
+  <div id="view-viewer" class="view">
+    <!-- Video grid + topbar -->
+    <div class="video-grid-wrapper">
+      <div class="viewer-topbar">
+        <div class="viewer-topbar-logo">
+          <div class="logo-icon">🖥️</div>
+          ScreenShare
+        </div>
+        <div style="flex:1"></div>
+        <button class="btn btn-secondary btn-sm" id="btn-sidebar-toggle">Streams</button>
+        <button class="btn btn-secondary btn-sm" id="btn-back-lobby">← Voltar ao Lobby</button>
+      </div>
+      <div class="video-grid" id="video-grid" data-count="0"></div>
+    </div>
+
+    <!-- Sidebar: list of available streams -->
+    <aside class="viewer-sidebar" id="viewer-sidebar">
+      <div class="sidebar-header">
+        <h3>Streams disponíveis</h3>
+        <button class="btn-icon" id="btn-close-sidebar" title="Fechar">✕</button>
+      </div>
+      <div class="sidebar-streams" id="sidebar-streams-list"></div>
+    </aside>
+  </div>
+
+</div><!-- /#app -->
+
+<!-- ══════════════════════════════════════════════════
+     MODAL: Senha de stream privado
+══════════════════════════════════════════════════ -->
+<div class="modal-overlay hidden" id="modal-password">
+  <div class="modal">
+    <div class="modal-header">
+      <div>
+        <h2>🔒 Stream privado</h2>
+        <p id="modal-password-desc">Este stream requer uma senha para entrar.</p>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="input-group">
+        <label for="input-stream-password">Senha</label>
+        <input
+          type="password"
+          id="input-stream-password"
+          placeholder="Digite a senha..."
+          autocomplete="off"
+        >
+      </div>
+      <div class="error-msg" id="modal-password-error"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" id="btn-password-cancel">Cancelar</button>
+      <button class="btn btn-primary" id="btn-password-confirm" style="width:auto">Entrar</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
