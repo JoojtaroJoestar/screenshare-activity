@@ -23,6 +23,17 @@ let username = '';
 // Map<viewerId, RTCPeerConnection>
 const peerConnections = new Map();
 
+function debugLog(msg) {
+  let log = document.getElementById('debug-log');
+  if (!log) {
+    log = document.createElement('div');
+    log.id = 'debug-log';
+    log.style.cssText = 'position:fixed;bottom:10px;left:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:10px;z-index:99999;font-family:monospace;font-size:12px;max-width:300px;pointer-events:none;';
+    document.body.appendChild(log);
+  }
+  log.innerHTML += '<div>' + msg + '</div>';
+}
+
 /* ── DOM ─────────────────────────────────────────────────────────────── */
 const $ = (id) => document.getElementById(id);
 
@@ -258,6 +269,7 @@ function stopStream() {
 
 /* ── WebRTC: Broadcaster side ─────────────────────────────────────────── */
 async function handleViewerJoined(viewerId, viewerName, sid) {
+  debugLog(`> Viewer ${viewerName} solicitou entrada!`);
   const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
   peerConnections.set(viewerId, pc);
 
@@ -283,8 +295,11 @@ async function handleViewerJoined(viewerId, viewerName, sid) {
   };
 
   try {
+    debugLog(`Criando offer para ${viewerName}...`);
     const offer = await pc.createOffer();
+    debugLog(`setLocalDescription...`);
     await pc.setLocalDescription(offer);
+    debugLog(`Enviando webrtc_offer...`);
     send({
       type: 'webrtc_offer',
       streamId: sid,
@@ -292,6 +307,7 @@ async function handleViewerJoined(viewerId, viewerName, sid) {
       viewerId,
     });
   } catch (err) {
+    debugLog(`ERRO ao criar offer: ${err.message}`);
     console.error('Error creating offer for viewer', viewerId, err);
   }
 }
