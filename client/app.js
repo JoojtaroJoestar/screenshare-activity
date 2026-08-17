@@ -38,6 +38,7 @@ const views = {
 };
 
 function showView(name) {
+  debugLog("Trocando tela para: " + name);
   Object.values(views).forEach(v => v.classList.remove('active'));
   views[name].classList.add('active');
 }
@@ -129,6 +130,11 @@ function handleMessage(msg) {
     case 'join_ok': {
       debugLog("Servidor aceitou! Iniciando player...");
       // Store viewerId so we can send it back in ICE/answer messages
+      try {
+        debugLog("WebRTC typeof: " + typeof RTCPeerConnection);
+      } catch (e) {
+        debugLog("ERRO WebRTC: " + e.message);
+      }
       const entry = watchingStreams.get(msg.streamId);
       if (entry) entry.viewerId = msg.viewerId;
       startViewerPeer(msg.streamId, msg.viewerId, msg.broadcasterName, msg.thumbnail);
@@ -366,7 +372,14 @@ function confirmPassword() {
    WebRTC — VIEWER
 ══════════════════════════════════════════════════════════════════════ */
 async function startViewerPeer(streamId, viewerId, broadcasterName, thumbnail) {
-  const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+  let pc;
+  try {
+    pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    debugLog("PC criado com sucesso!");
+  } catch(e) {
+    debugLog("ERRO CRÍTICO no startViewerPeer: " + e.message);
+    return;
+  }
   peerConnections.set(streamId, pc);
 
   // Add video panel immediately (with loading state)
