@@ -149,6 +149,7 @@ function setupPrivateToggle() {
 
 /* ── Start Stream ─────────────────────────────────────────────────────── */
 $('btn-start-stream').addEventListener('click', startStream);
+$('btn-start-camera').addEventListener('click', startCameraStream);
 
 async function startStream() {
   const name = $('input-stream-name').value.trim() || `${username}'s Stream`;
@@ -188,6 +189,47 @@ async function startStream() {
     return;
   }
 
+  finishStartStream(name, isPrivate, password);
+}
+
+async function startCameraStream() {
+  const name = $('input-stream-name').value.trim() || `${username}'s Camera`;
+  const isPrivate = $('toggle-private').checked;
+  const password = isPrivate ? $('input-password').value : '';
+
+  if (isPrivate && !password) {
+    showSetupError('Insira uma senha para o stream privado.');
+    return;
+  }
+  hideSetupError();
+
+  const q = QUALITY_MAP[selectedQuality];
+  try {
+    localStream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: 'user', // prefer front camera
+        width:     { ideal: q.width },
+        height:    { ideal: q.height },
+        frameRate: { ideal: q.frameRate }
+      },
+      audio: {
+        echoCancellation:  true,
+        noiseSuppression:  true,
+      },
+    });
+  } catch (err) {
+    if (err.name === 'NotAllowedError') {
+      showSetupError('Você precisa permitir acesso à câmera e microfone para continuar.');
+    } else {
+      showSetupError(`Erro ao capturar câmera: ${err.message}`);
+    }
+    return;
+  }
+
+  finishStartStream(name, isPrivate, password);
+}
+
+function finishStartStream(name, isPrivate, password) {
   // Show preview
   $('preview-video').srcObject = localStream;
 

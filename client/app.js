@@ -147,6 +147,7 @@ function handleMessage(msg) {
       break;
 
     case 'webrtc_offer':
+      debugLog(">> Recebeu webrtc_offer do broadcaster!");
       handleOffer(msg.streamId, msg.offer);
       break;
 
@@ -428,22 +429,32 @@ async function startViewerPeer(streamId, viewerId, broadcasterName, thumbnail) {
 }
 
 async function handleOffer(streamId, offer) {
+  debugLog("Processando oferta...");
   const pc = peerConnections.get(streamId);
-  if (!pc) return;
+  if (!pc) {
+    debugLog("ERRO: pc não encontrado em handleOffer!");
+    return;
+  }
 
   try {
-    await pc.setRemoteDescription(new RTCSessionDescription(offer));
+    debugLog("setRemoteDescription");
+    await pc.setRemoteDescription(offer);
+    debugLog("createAnswer");
     const answer = await pc.createAnswer();
+    debugLog("setLocalDescription");
     await pc.setLocalDescription(answer);
-    const storedViewerId = watchingStreams.get(streamId)?.viewerId || '';
+
+    debugLog("Enviando webrtc_answer...");
+    const entry = watchingStreams.get(streamId);
     send({
       type: 'webrtc_answer',
       streamId,
       answer,
-      viewerId: storedViewerId,
+      viewerId: entry ? entry.viewerId : null,
     });
   } catch (err) {
-    console.error('Error handling offer:', err);
+    debugLog("ERRO no handleOffer: " + err.message);
+    console.error('Error handling offer', err);
   }
 }
 
@@ -466,7 +477,7 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
   panel.dataset.streamId = streamId;
 
   panel.innerHTML = `
-    <video autoplay playsinline muted></video>
+    <video autoplay playsinline></video>
     <div class="video-panel-connecting">
       <div class="spinner"></div>
       <p>Conectando a ${escHtml(broadcasterName)}...</p>
@@ -476,10 +487,34 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
         <button class="btn-icon btn-fullscreen" title="Tela cheia" onclick="toggleFullscreen('${streamId}')">⛶</button>
         <button class="btn-icon btn-danger" title="Fechar" style="color:#ed4245" onclick="removeWatchStream('${streamId}')">✕</button>
       </div>
-      <div class="video-panel-bottom">
+      <div class="video-panel-bottom" style="display:flex; justify-content:space-between; align-items:center;">
         <div class="video-panel-name">${escHtml(broadcasterName)}</div>
+        <div class="video-panel-volume" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-icon btn-mute" title="Mutar" style="font-size:16px;">🔊</button>
+          <input type="range" class="volume-slider" min="0" max="1" step="0.05" value="1" style="width:80px; accent-color:var(--accent);">
+        </div>
       </div>
     </div>`;
+
+  const video = panel.querySelector('video');
+  const muteBtn = panel.querySelector('.btn-mute');
+  const volSlider = panel.querySelector('.volume-slider');
+
+  muteBtn.onclick = () => {
+    video.muted = !video.muted;
+    muteBtn.textContent = video.muted ? '🔇' : '🔊';
+  };
+
+  volSlider.oninput = (e) => {
+    video.volume = e.target.value;
+    if (video.volume === 0) {
+      video.muted = true;
+      muteBtn.textContent = '🔇';
+    } else {
+      video.muted = false;
+      muteBtn.textContent = '🔊';
+    }
+  };
 
   grid.appendChild(panel);
 

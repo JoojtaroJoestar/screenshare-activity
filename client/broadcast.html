@@ -83,9 +83,14 @@
 
       <div class="error-msg" id="setup-error"></div>
 
-      <button class="btn btn-primary" id="btn-start-stream" style="margin-top:16px">
-        📡 Iniciar transmissão
-      </button>
+      <div style="display:flex; gap:12px; margin-top:16px;">
+        <button class="btn btn-primary" id="btn-start-stream" style="flex:1">
+          📺 Transmitir Tela
+        </button>
+        <button class="btn btn-secondary" id="btn-start-camera" style="flex:1; border: 1px solid var(--accent); color: var(--accent);">
+          📷 Transmitir Câmera
+        </button>
+      </div>
     </div>
   </div>
 
@@ -130,6 +135,6 @@
   </div>
 
 </div>
-<script src="broadcast.js?v=3" type="module"></script>
+<script src="broadcast.js?v=4" type="module"></script>
 </body>
 </html>
