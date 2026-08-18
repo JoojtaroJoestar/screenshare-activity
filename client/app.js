@@ -511,6 +511,201 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
       video.muted = true;
       muteBtn.textContent = '🔇';
     } else {
+  const stream = allStreams.find(s => s.id === streamId);
+  if (!stream) {
+    debugLog("Erro: stream " + streamId + " não encontrado!");
+    return;
+  }
+
+  if (stream.isPrivate) {
+    // Show password modal
+    pendingJoinStreamId = streamId;
+    $('modal-password-desc').textContent = `"${escHtml(stream.name)}" é privado. Insira a senha para entrar.`;
+    $('input-stream-password').value = '';
+    hideError('modal-password-error');
+    $('modal-password').classList.remove('hidden');
+    $('input-stream-password').focus();
+  } else {
+    joinStream(streamId, '');
+  }
+}
+
+function joinStream(streamId, password) {
+  send({ type: 'join_stream', streamId, password });
+}
+
+function handleJoinError(streamId, reason) {
+  if (reason === 'Wrong password') {
+    showError('modal-password-error', 'Senha incorreta. Tente novamente.');
+    $('input-stream-password').focus();
+  } else {
+    debugLog(`Erro ao entrar no stream: ${reason}`);
+    $('modal-password').classList.add('hidden');
+  }
+}
+
+// Password modal events
+$('btn-password-confirm').addEventListener('click', confirmPassword);
+$('input-stream-password').addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') confirmPassword();
+});
+$('btn-password-cancel').addEventListener('click', () => {
+  pendingJoinStreamId = null;
+  $('modal-password').classList.add('hidden');
+});
+
+function confirmPassword() {
+  const pw = $('input-stream-password').value;
+  if (!pw) {
+    showError('modal-password-error', 'Digite a senha.');
+    return;
+  }
+  $('modal-password').classList.add('hidden');
+  joinStream(pendingJoinStreamId, pw);
+  pendingJoinStreamId = null;
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   WebRTC — VIEWER
+══════════════════════════════════════════════════════════════════════ */
+async function startViewerPeer(streamId, viewerId, broadcasterName, thumbnail) {
+  let pc;
+  try {
+    const PCConstructor = typeof RTCPeerConnection === 'function' ? RTCPeerConnection 
+                        : (window.webkitRTCPeerConnection || window.mozRTCPeerConnection);
+    if (!PCConstructor) {
+      throw new Error("Nenhum construtor WebRTC suportado neste navegador");
+    }
+    pc = new PCConstructor({ iceServers: ICE_SERVERS });
+    debugLog("PC criado com sucesso!");
+  } catch(e) {
+    debugLog("ERRO CRÍTICO no startViewerPeer: " + e.message);
+    return;
+  }
+  peerConnections.set(streamId, pc);
+
+  // Add video panel immediately (with loading state)
+  // watchingStreams entry may already exist (created in join_ok handler) — update it
+  const panel = addVideoPanel(streamId, broadcasterName, viewerId);
+
+  pc.onicecandidate = (e) => {
+    if (e.candidate) {
+      // Use stored viewerId from watchingStreams in case it was updated
+      const storedViewerId = watchingStreams.get(streamId)?.viewerId || viewerId;
+      send({
+        type: 'webrtc_ice',
+        streamId,
+        candidate: e.candidate,
+        viewerId: storedViewerId,
+        target: 'broadcaster',
+      });
+    }
+  };
+
+  pc.ontrack = (e) => {
+    const video = panel.querySelector('video');
+    const connecting = panel.querySelector('.video-panel-connecting');
+    if (video) {
+      video.srcObject = e.streams[0];
+      video.play().catch(() => {});
+      connecting?.classList.add('hidden');
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      removeWatchStream(streamId);
+    }
+  };
+
+  // Show viewer view
+  showView('viewer');
+  updateVideoGrid();
+}
+
+async function handleOffer(streamId, offer) {
+  debugLog("Processando oferta...");
+  const pc = peerConnections.get(streamId);
+  if (!pc) {
+    debugLog("ERRO: pc não encontrado em handleOffer!");
+    return;
+  }
+
+  try {
+    debugLog("setRemoteDescription");
+    await pc.setRemoteDescription(offer);
+    debugLog("createAnswer");
+    const answer = await pc.createAnswer();
+    debugLog("setLocalDescription");
+    await pc.setLocalDescription(answer);
+
+    debugLog("Enviando webrtc_answer...");
+    const entry = watchingStreams.get(streamId);
+    send({
+      type: 'webrtc_answer',
+      streamId,
+      answer,
+      viewerId: entry ? entry.viewerId : null,
+    });
+  } catch (err) {
+    debugLog("ERRO no handleOffer: " + err.message);
+    console.error('Error handling offer', err);
+  }
+}
+
+async function handleRemoteIce(streamId, candidate) {
+  const pc = peerConnections.get(streamId);
+  if (!pc || !candidate) return;
+  try {
+    await pc.addIceCandidate(new RTCIceCandidate(candidate));
+  } catch { /* ignore */ }
+}
+
+/* ══════════════════════════════════════════════════════════════════════
+   Video Grid Management
+══════════════════════════════════════════════════════════════════════ */
+function addVideoPanel(streamId, broadcasterName, viewerId) {
+  const grid = $('video-grid');
+
+  const panel = document.createElement('div');
+  panel.className = 'video-panel';
+  panel.dataset.streamId = streamId;
+
+  panel.innerHTML = `
+    <video autoplay playsinline></video>
+    <div class="video-panel-connecting">
+      <div class="spinner"></div>
+      <p>Conectando a ${escHtml(broadcasterName)}...</p>
+    </div>
+    <div class="video-panel-overlay">
+      <div class="video-panel-top">
+        <button class="btn-icon btn-fullscreen" title="Tela cheia">⛶</button>
+        <button class="btn-icon btn-danger" title="Fechar" style="color:#ed4245">✕</button>
+      </div>
+      <div class="video-panel-bottom" style="display:flex; justify-content:space-between; align-items:center;">
+        <div class="video-panel-name">${escHtml(broadcasterName)}</div>
+        <div class="video-panel-volume" style="display:flex; align-items:center; gap:8px;">
+          <button class="btn-icon btn-mute" title="Mutar" style="font-size:16px;">🔊</button>
+          <input type="range" class="volume-slider" min="0" max="1" step="0.05" value="1" style="width:80px; accent-color:var(--accent);">
+        </div>
+      </div>
+    </div>`;
+
+  const video = panel.querySelector('video');
+  const muteBtn = panel.querySelector('.btn-mute');
+  const volSlider = panel.querySelector('.volume-slider');
+
+  muteBtn.onclick = () => {
+    video.muted = !video.muted;
+    muteBtn.textContent = video.muted ? '🔇' : '🔊';
+  };
+
+  volSlider.oninput = (e) => {
+    video.volume = e.target.value;
+    if (video.volume === 0) {
+      video.muted = true;
+      muteBtn.textContent = '🔇';
+    } else {
       video.muted = false;
       muteBtn.textContent = '🔊';
     }
@@ -519,7 +714,7 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
   const fullscreenBtn = panel.querySelector('.btn-fullscreen');
   const closeBtn = panel.querySelector('.btn-danger');
 
-  fullscreenBtn.onclick = () => toggleFullscreen(panel);
+  fullscreenBtn.onclick = () => toggleFullscreen(streamId);
   closeBtn.onclick = () => removeWatchStream(streamId);
 
   grid.appendChild(panel);
@@ -636,14 +831,6 @@ function hideError(id) {
   const el = $(id);
   if (!el) return;
   el.classList.remove('visible');
-}
-
-function toggleFullscreen(panel) {
-  if (!document.fullscreenElement) {
-    if (panel.requestFullscreen) { panel.requestFullscreen(); } else if (panel.webkitRequestFullscreen) { panel.webkitRequestFullscreen(); }
-  } else {
-    if (document.exitFullscreen) { document.exitFullscreen(); } else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
-  }
 }
 
 window.toggleDebugLogs = function() { const log = document.getElementById('debug-log'); if(log) log.style.display = (log.style.display === 'none') ? 'block' : 'none'; };
