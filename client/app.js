@@ -484,6 +484,7 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
     </div>
     <div class="video-panel-overlay">
       <div class="video-panel-top">
+        <button class="btn-icon btn-aspect" title="Mudar preenchimento (Zoom/Esticar)" style="font-size:16px;">🔳</button>
         <button class="btn-icon btn-fullscreen" title="Tela cheia">⛶</button>
         <button class="btn-icon btn-danger" title="Fechar" style="color:#ed4245">✕</button>
       </div>
@@ -516,8 +517,22 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
     }
   };
 
+  const aspectBtn = panel.querySelector('.btn-aspect');
   const fullscreenBtn = panel.querySelector('.btn-fullscreen');
   const closeBtn = panel.querySelector('.btn-danger');
+
+  // Aspect ratio toggle logic
+  const fitModes = ['contain', 'cover', 'fill'];
+  let currentFit = 0;
+  aspectBtn.onclick = () => {
+    currentFit = (currentFit + 1) % fitModes.length;
+    video.style.setProperty('object-fit', fitModes[currentFit], 'important');
+    
+    // Update icon to reflect mode
+    if (fitModes[currentFit] === 'contain') aspectBtn.textContent = '🔳';
+    else if (fitModes[currentFit] === 'cover') aspectBtn.textContent = '🔍';
+    else aspectBtn.textContent = '↔️';
+  };
 
   fullscreenBtn.onclick = () => toggleFullscreen(streamId);
   closeBtn.onclick = () => removeWatchStream(streamId);
