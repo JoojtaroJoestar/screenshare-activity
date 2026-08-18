@@ -155,6 +155,7 @@ async function startStream() {
   const name = $('input-stream-name').value.trim() || `${username}'s Stream`;
   const isPrivate = $('toggle-private').checked;
   const password = isPrivate ? $('input-password').value : '';
+  const captureAudio = $('toggle-audio').checked;
 
   if (isPrivate && !password) {
     showSetupError('Insira uma senha para o stream privado.');
@@ -167,18 +168,16 @@ async function startStream() {
   try {
     localStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
-        // displaySurface: 'monitor' pede tela inteira por padrão
-        displaySurface: 'monitor',
         width:     { ideal: q.width },
         height:    { ideal: q.height },
         frameRate: { ideal: q.frameRate },
         cursor:    'always',
       },
-      audio: {
+      audio: captureAudio ? {
         echoCancellation:  false,
         noiseSuppression:  false,
         sampleRate:        44100,
-      },
+      } : false,
     });
   } catch (err) {
     if (err.name === 'NotAllowedError') {
