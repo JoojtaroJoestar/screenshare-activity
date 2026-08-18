@@ -69,7 +69,7 @@ function debugLog(msg) {
   if (!log) {
     log = document.createElement('div');
     log.id = 'debug-log';
-    log.style.cssText = 'position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:10px;z-index:99999;font-family:monospace;font-size:12px;max-width:300px;pointer-events:none;';
+    log.style.cssText = 'display:none;position:fixed;bottom:10px;right:10px;background:rgba(0,0,0,0.8);color:#0f0;padding:10px;z-index:99999;font-family:monospace;font-size:12px;max-width:300px;pointer-events:none;';
     document.body.appendChild(log);
   }
   log.innerHTML += '<div>' + msg + '</div>';
@@ -484,8 +484,8 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
     </div>
     <div class="video-panel-overlay">
       <div class="video-panel-top">
-        <button class="btn-icon btn-fullscreen" title="Tela cheia" onclick="toggleFullscreen('${streamId}')">⛶</button>
-        <button class="btn-icon btn-danger" title="Fechar" style="color:#ed4245" onclick="removeWatchStream('${streamId}')">✕</button>
+        <button class="btn-icon btn-fullscreen" title="Tela cheia">⛶</button>
+        <button class="btn-icon btn-danger" title="Fechar" style="color:#ed4245">✕</button>
       </div>
       <div class="video-panel-bottom" style="display:flex; justify-content:space-between; align-items:center;">
         <div class="video-panel-name">${escHtml(broadcasterName)}</div>
@@ -515,6 +515,12 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
       muteBtn.textContent = '🔊';
     }
   };
+
+  const fullscreenBtn = panel.querySelector('.btn-fullscreen');
+  const closeBtn = panel.querySelector('.btn-danger');
+
+  fullscreenBtn.onclick = () => toggleFullscreen(panel);
+  closeBtn.onclick = () => removeWatchStream(streamId);
 
   grid.appendChild(panel);
 
@@ -631,3 +637,13 @@ function hideError(id) {
   if (!el) return;
   el.classList.remove('visible');
 }
+
+function toggleFullscreen(panel) {
+  if (!document.fullscreenElement) {
+    if (panel.requestFullscreen) { panel.requestFullscreen(); } else if (panel.webkitRequestFullscreen) { panel.webkitRequestFullscreen(); }
+  } else {
+    if (document.exitFullscreen) { document.exitFullscreen(); } else if (document.webkitExitFullscreen) { document.webkitExitFullscreen(); }
+  }
+}
+
+window.toggleDebugLogs = function() { const log = document.getElementById('debug-log'); if(log) log.style.display = (log.style.display === 'none') ? 'block' : 'none'; };
