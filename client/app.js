@@ -477,7 +477,7 @@ function addVideoPanel(streamId, broadcasterName, viewerId) {
   panel.dataset.streamId = streamId;
 
   panel.innerHTML = `
-    <video autoplay playsinline></video>
+    <video autoplay playsinline muted></video>
     <div class="video-panel-connecting">
       <div class="spinner"></div>
       <p>Conectando a ${escHtml(broadcasterName)}...</p>
