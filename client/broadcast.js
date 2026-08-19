@@ -168,6 +168,8 @@ async function startStream() {
   try {
     localStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
+        width:     { ideal: q.width },
+        height:    { ideal: q.height },
         frameRate: { ideal: q.frameRate },
         cursor:    'always',
       },
